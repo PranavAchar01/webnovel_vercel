@@ -4,23 +4,5 @@
   ],
   "routes": [
     { "src": "/(.*)", "dest": "main.py" }
-  
-  ],
-  "excludeFiles": [
-    "**/*.pyc",
-    "**/__pycache__/**",
-    ".env",
-    ".git/**",
-    ".venv/**",
-    "node_modules/**",
-    "*.md",
-    "tests/**",
-    "slides_template.js",
-    "answer.js",
-    "package*.json",
-    "create_montage.py",
-    "pptx_to_img.py",
-    "*.pptx",
-    "**/tmp/**"
   ]
 }
