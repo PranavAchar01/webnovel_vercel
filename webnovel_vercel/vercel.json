@@ -4,6 +4,7 @@
   ],
   "routes": [
     { "src": "/(.*)", "dest": "main.py" }
+  
   ],
   "excludeFiles": [
     "**/*.pyc",
