@@ -22,6 +22,8 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import tempfile
+
 
 from fastapi import (
     BackgroundTasks,
@@ -40,7 +42,12 @@ from . import db, extractor, tts, search
 app = FastAPI(title="Web Novel Extractor & Audiobook Service")
 
 BASE_DIR = Path("/mnt/data/novels")
-BASE_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    BASE_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # Fallback: use the system’s temporary directory on read‑only filesystems like Vercel
+    BASE_DIR = Path(tempfile.gettempdir()) / "novels"
+    BASE_DIR.mkdir(parents=True, exist_ok=True)
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
