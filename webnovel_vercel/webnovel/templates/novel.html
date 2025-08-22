@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ novel['title'] or 'Novel' }} – Web Novel Service{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-semibold mb-2">{{ novel['title'] or 'Untitled' }}</h2>
+<p class="text-gray-600">Author: {{ novel['author'] or 'Unknown' }}</p>
+<p class="mt-2 text-gray-700">{{ novel['description'] or '' }}</p>
+<div class="mt-4">
+    <a href="/download/{{ novel['id'] }}.txt" class="text-blue-600 underline mr-4">Download TXT</a>
+    <a href="/download/{{ novel['id'] }}.epub" class="text-blue-600 underline">Download EPUB</a>
+</div>
+
+<h3 class="mt-6 mb-2 text-xl font-semibold">Chapters</h3>
+<ul>
+    {% for chapter in chapters %}
+    <li class="py-3 flex items-center justify-between border-b">
+        <div>
+            <span class="font-medium">Ch {{ chapter['idx'] }}: {{ chapter['title'] }}</span>
+        </div>
+        <div class="flex items-center space-x-4">
+            {% if chapter['has_audio'] %}
+            <button class="play-btn text-blue-600 underline" data-audio="/media/audio/{{ chapter['id'] }}">Play</button>
+            {% endif %}
+            <a href="{{ chapter['text_path'].split('/mnt/data')[-1] if chapter['text_path'] else '#' }}" class="text-blue-600 underline" download>Text</a>
+            <button class="tts-btn px-2 py-1 bg-green-500 text-white rounded text-sm" data-id="{{ chapter['id'] }}">Generate Audio</button>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+
+<div id="audio-player" class="mt-6 hidden">
+    <audio controls id="player" class="w-full"></audio>
+    <div class="mt-2 flex justify-between">
+        <button id="prev-btn" class="px-3 py-1 bg-gray-200 rounded">Prev</button>
+        <button id="next-btn" class="px-3 py-1 bg-gray-200 rounded">Next</button>
+    </div>
+</div>
+
+<script>
+(function() {
+  const playButtons = document.querySelectorAll('.play-btn');
+  const ttsButtons = document.querySelectorAll('.tts-btn');
+  const player = document.getElementById('player');
+  const playerContainer = document.getElementById('audio-player');
+  let playlist = [];
+  let currentIndex = -1;
+
+  function buildPlaylist() {
+    playlist = Array.from(playButtons).map((btn) => {
+      return { id: btn.dataset.audio.split('/').pop(), src: btn.dataset.audio };
+    });
+  }
+
+  function playIndex(index) {
+    if (index < 0 || index >= playlist.length) return;
+    currentIndex = index;
+    const item = playlist[index];
+    player.src = item.src;
+    playerContainer.classList.remove('hidden');
+    player.play();
+    // Persist last played
+    localStorage.setItem('lastPlayed', JSON.stringify({ novelId: '{{ novel['id'] }}', chapterId: item.id, time: 0 }));
+  }
+
+  playButtons.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      buildPlaylist();
+      const src = btn.dataset.audio;
+      const idx = playlist.findIndex(p => p.src === src);
+      playIndex(idx);
+    });
+  });
+
+  document.getElementById('prev-btn').addEventListener('click', () => {
+    if (currentIndex > 0) {
+      playIndex(currentIndex - 1);
+    }
+  });
+  document.getElementById('next-btn').addEventListener('click', () => {
+    if (currentIndex < playlist.length - 1) {
+      playIndex(currentIndex + 1);
+    }
+  });
+  player.addEventListener('ended', () => {
+    if (currentIndex < playlist.length - 1) {
+      playIndex(currentIndex + 1);
+    }
+  });
+
+  // Generate audio button handler
+  ttsButtons.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const chapId = btn.dataset.id;
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = 'Working...';
+      try {
+        const resp = await fetch(`/tts/chapter/${chapId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}'
+        });
+        const data = await resp.json();
+        const jobId = data.job_id;
+        async function poll() {
+          const r = await fetch(`/jobs/${jobId}`);
+          const j = await r.json();
+          if (j.status === 'done') {
+            location.reload();
+          } else if (j.status === 'error') {
+            alert('Error generating audio: ' + (j.error || 'unknown error'));
+            btn.disabled = false;
+            btn.textContent = originalText;
+          } else {
+            setTimeout(poll, 2000);
+          }
+        }
+        poll();
+      } catch (e) {
+        alert('Request failed');
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

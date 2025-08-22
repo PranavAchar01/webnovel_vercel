@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Search – Web Novel Service{% endblock %}
+
+{% block content %}
+<form method="get" action="/ui/search" class="mb-6 flex flex-wrap items-center">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search..." class="flex-grow border p-2 rounded mr-2" />
+    <select name="audio" class="border p-2 rounded mr-2">
+        <option value="" {% if not request.query_params.get('audio') %}selected{% endif %}>All</option>
+        <option value="true" {% if request.query_params.get('audio') == 'true' %}selected{% endif %}>Audio Available</option>
+        <option value="false" {% if request.query_params.get('audio') == 'false' %}selected{% endif %}>No Audio</option>
+    </select>
+    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Search</button>
+</form>
+
+<ul>
+    {% for novel in novels %}
+    <li class="mb-4 pb-4 border-b">
+        <a href="/ui/novel/{{ novel['id'] }}" class="text-xl font-semibold text-blue-700">{{ novel['title'] or "Untitled" }}</a>
+        <div class="text-sm text-gray-600">Author: {{ novel['author'] or "Unknown" }}</div>
+        <div class="text-sm text-gray-500 mt-1">{{ novel['description'] or "" }}</div>
+    </li>
+    {% else %}
+    <li>No results.</li>
+    {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,46 @@
+{
+  // Vercel build configuration for the FastAPI service.
+  //
+  // The `builds` array tells Vercel to use the official Python runtime
+  // (@vercel/python) to package our code.  The `src` property points to
+  // the entry file that exports the ASGI application instance, and the
+  // runtime will automatically detect and mount the `app` object defined
+  // in that file.
+  "builds": [
+    {
+      "src": "main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  // The `routes` array rewrites all incoming HTTP requests so they
+  // target our entry module.  Without this rule, Vercel would look
+  // for files matching the URL path in the project root.  By using
+  // a catch‑all pattern, we ensure FastAPI handles every route.
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "main.py"
+    }
+  ],
+  // Optional: exclude files and directories that are not needed in
+  // the serverless function to reduce deployment size.  Removing
+  // unnecessary assets prevents exceeding Vercel's 250 MB unzipped
+  // limit.  Adjust this list as appropriate for your project.
+  "excludeFiles": [
+    "**/*.pyc",
+    "**/__pycache__/**",
+    ".env",
+    ".git/**",
+    ".venv/**",
+    "node_modules/**",
+    "*.md",
+    "tests/**",
+    "slides_template.js",
+    "answer.js",
+    "package*.json",
+    "create_montage.py",
+    "pptx_to_img.py",
+    "*.pptx",
+    "**/tmp/**"
+  ]
+}
