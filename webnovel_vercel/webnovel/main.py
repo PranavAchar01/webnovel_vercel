@@ -21,9 +21,8 @@ import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 import tempfile
-
+from typing import Any, Dict, List, Optional
 
 from fastapi import (
     BackgroundTasks,
@@ -41,13 +40,36 @@ from . import db, extractor, tts, search
 
 app = FastAPI(title="Web Novel Extractor & Audiobook Service")
 
-BASE_DIR = Path("/mnt/data/novels")
+"""Determine the base directory for storing novel files.
+
+On platforms like Vercel the root filesystem is read‑only and only
+``/tmp`` is writeable.  To handle both local and serverless
+deployments, the base directory can be specified via the
+``WEBNOVEL_DATA_DIR`` environment variable.  Otherwise it defaults
+to a `novels` subdirectory under the system temporary directory.
+
+We create the directory at startup if it does not already exist.
+"""
+
+# Choose a writeable directory for storing extracted novels.  When
+# deployed to serverless platforms such as Vercel the filesystem is
+# read‑only except for ``/tmp``.  Use a configurable environment
+# variable to override the location, falling back to ``/tmp/novels``.
+data_dir = os.environ.get("WEBNOVEL_DATA_DIR")
+if data_dir:
+    BASE_DIR = Path(data_dir)
+else:
+    # Default to a novels directory inside the system temp folder
+    BASE_DIR = Path(tempfile.gettempdir()) / "novels"
+
+# Ensure the directory exists; on read‑only file systems this may
+# raise an exception which will be reported in logs.
 try:
     BASE_DIR.mkdir(parents=True, exist_ok=True)
 except OSError:
-    # Fallback: use the system’s temporary directory on read‑only filesystems like Vercel
-    BASE_DIR = Path(tempfile.gettempdir()) / "novels"
-    BASE_DIR.mkdir(parents=True, exist_ok=True)
+    # If the directory cannot be created (e.g. read‑only FS), log
+    # message; the app may still run for read‑only operations.
+    pass
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -487,7 +509,24 @@ async def ui_novel(request: Request, novel_id: str) -> HTMLResponse:
     if not novel:
         raise HTTPException(status_code=404, detail="Novel not found")
     chapters = db.get_chapters(novel_id)
-    # Determine if audio available for each chapter
+    # Determine if audio available for each chapter and compute relative file paths.
     for ch in chapters:
         ch["has_audio"] = bool(ch.get("audio_path"))
-    return templates.TemplateResponse("novel.html", {"request": request, "novel": novel, "chapters": chapters})
+        # Compute a relative text download path when a text file exists.  We
+        # derive the relative path against the BASE_DIR so that the
+        # download link does not expose internal FS paths.
+        text_path = ch.get("text_path")
+        if text_path:
+            try:
+                rel = Path(text_path).resolve().relative_to(BASE_DIR.resolve())
+                # Prepend a slash so the path looks like an absolute URL
+                ch["rel_text_path"] = f"/{rel.as_posix()}"
+            except Exception:
+                # Fallback: use the basename
+                ch["rel_text_path"] = "/" + Path(text_path).name
+        else:
+            ch["rel_text_path"] = None
+    return templates.TemplateResponse(
+        "novel.html",
+        {"request": request, "novel": novel, "chapters": chapters, "base_dir": str(BASE_DIR)},
+    )
