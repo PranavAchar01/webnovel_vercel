@@ -4,6 +4,6 @@ httpx
 beautifulsoup4
 jinja2
 python-multipart
-whoosh
+
 
 ####kkskdfaksd
